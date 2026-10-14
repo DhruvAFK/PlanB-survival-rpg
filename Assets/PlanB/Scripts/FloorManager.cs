@@ -8,8 +8,8 @@ namespace PlanB
         public int CurrentFloor = 1;
         public Transform ActiveRoot { get; private set; }
         public LevelBuilder ActiveLevel { get; private set; }
-        private readonly LevelBuilder[] levels = new LevelBuilder[2];
-        private readonly List<Enemy> enemies = new List<Enemy>();
+        [SerializeField] private LevelBuilder[] levels = new LevelBuilder[2];
+        [SerializeField] private List<Enemy> enemies = new List<Enemy>();
         public int EnemiesRemaining
         {
             get
@@ -84,14 +84,15 @@ namespace PlanB
         public void Clear()
         {
             enemies.Clear();
+            // Enumerate owned roots as well: an editor assembly reload can reset managed caches.
+            foreach (var ownedLevel in GetComponentsInChildren<LevelBuilder>(true))
+            {
+                ownedLevel.gameObject.SetActive(false);
+                Destroy(ownedLevel.gameObject);
+            }
             for (int i = 0; i < levels.Length; i++)
             {
-                if (levels[i] != null)
-                {
-                    levels[i].gameObject.SetActive(false);
-                    Destroy(levels[i].gameObject);
-                    levels[i] = null;
-                }
+                levels[i] = null;
             }
             CurrentFloor = 1; ActiveRoot = null; ActiveLevel = null;
         }

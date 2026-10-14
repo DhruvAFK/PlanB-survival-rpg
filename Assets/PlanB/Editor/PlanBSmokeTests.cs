@@ -64,7 +64,37 @@ namespace PlanB.Editor
         {
             if (!capture) return;
             Directory.CreateDirectory("Assets/PlanB/Verification");
-            ScreenCapture.CaptureScreenshot("Assets/PlanB/Verification/" + name + ".png");
+            var camera = GameManager.Instance.CameraRig.GetComponent<Camera>();
+            var canvas = GameManager.Instance.Hud.GetComponentInChildren<Canvas>();
+            var oldTarget = camera.targetTexture;
+            var oldMode = canvas.renderMode;
+            var oldCamera = canvas.worldCamera;
+            var oldDistance = canvas.planeDistance;
+            var scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
+            bool oldScaler = scaler.enabled;
+            float oldScale = canvas.scaleFactor;
+            var oldActive = RenderTexture.active;
+            var target = RenderTexture.GetTemporary(1600, 900, 24, RenderTextureFormat.ARGB32);
+            var pixels = new Texture2D(1600, 900, TextureFormat.RGB24, false);
+            try
+            {
+                camera.targetTexture = target;
+                scaler.enabled = false; canvas.scaleFactor = 1;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera; canvas.planeDistance = 1;
+                Canvas.ForceUpdateCanvases(); camera.Render();
+                RenderTexture.active = target;
+                pixels.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0); pixels.Apply();
+                File.WriteAllBytes("Assets/PlanB/Verification/" + name + ".png", pixels.EncodeToPNG());
+            }
+            finally
+            {
+                camera.targetTexture = oldTarget; canvas.renderMode = oldMode;
+                canvas.worldCamera = oldCamera; canvas.planeDistance = oldDistance;
+                scaler.enabled = oldScaler; canvas.scaleFactor = oldScale;
+                RenderTexture.active = oldActive;
+                UnityEngine.Object.DestroyImmediate(pixels); RenderTexture.ReleaseTemporary(target);
+            }
         }
         static void Later(float seconds = .25f)
         {
@@ -117,6 +147,10 @@ namespace PlanB.Editor
                         Find<Elevator>().Interact(); Later(.4f); break;
                     case 6:
                         Require(game.Floors.CurrentFloor == 2 && game.Floors.EnemiesRemaining == 11, "Research transition or enemies failed.");
+                        int activeFloors = 0;
+                        foreach (var level in game.Floors.GetComponentsInChildren<LevelBuilder>(true))
+                            if (level.gameObject.activeInHierarchy) activeFloors++;
+                        Require(activeFloors == 1, "A prior floor remained active after restart or script reload.");
                         ValidateRoute(2);
                         var boss = Find<Boss>(); boss.Damage(1);
                         Require(boss.Health == 25, "Dormant boss accepted damage through containment.");

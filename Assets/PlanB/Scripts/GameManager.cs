@@ -89,7 +89,6 @@ namespace PlanB
         {
             Time.timeScale = 1f;
             if (Player != null) { Player.gameObject.SetActive(false); Destroy(Player.gameObject); }
-            Floors.Clear();
             HasFuse = PowerRestored = HasKey = DoorUnlocked = BossDefeated = false;
             Scrap = Battery = Wire = Kills = 0; TrapCount = 2;
             AlarmUntil = RunTime = 0;
