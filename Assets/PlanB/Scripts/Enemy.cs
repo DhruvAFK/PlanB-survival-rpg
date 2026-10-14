@@ -26,6 +26,10 @@ namespace PlanB
         private float animationClock;
         private string spriteName;
         private Vector2 lastMovement;
+        private Vector2 steering;
+        private float nextSteer, nextVoice;
+        private int lastFrame = -1;
+        private int voiceSeed;
 
         public static Enemy Spawn(EnemyKind kind, Vector2 position, Transform parent)
         {
@@ -94,6 +98,9 @@ namespace PlanB
             }
             Health = MaxHealth;
             NextShot = Time.time + Random.Range(1f, 2f);
+            nextSteer = 0;
+            voiceSeed = Mathf.Abs(Mathf.RoundToInt(transform.position.x * 37 + transform.position.y * 13));
+            nextVoice = Time.time + 2 + voiceSeed % 19 * .17f;
             if (Visual != null)
             {
                 Visual.sprite = SpriteLibrary.Get(spriteName, 1);
@@ -115,8 +122,20 @@ namespace PlanB
             Visual.sortingOrder = Mathf.RoundToInt(100 - transform.position.y * 10);
             if (lastMovement.sqrMagnitude > .01f) animationClock += Time.deltaTime * 7;
             int frame = lastMovement.sqrMagnitude > .01f ? (int)animationClock % 3 : 1;
-            Visual.sprite = SpriteLibrary.Get(spriteName, frame);
+            if (frame != lastFrame)
+            {
+                Visual.sprite = SpriteLibrary.Get(spriteName, frame);
+                lastFrame = frame;
+            }
             Visual.flipX = Facing.x < -.05f;
+            var game = GameManager.Instance;
+            if (Kind != EnemyKind.Warden && CanAct(game) && Time.time >= nextVoice)
+            {
+                nextVoice = Time.time + 4.5f + voiceSeed % 11 * .23f;
+                if (((Vector2)(game.Player.transform.position - transform.position)).sqrMagnitude < 64 &&
+                    Physics2D.Linecast(transform.position, game.Player.transform.position, 1 << 8).collider == null)
+                    AudioFactory.PlayAt(Kind == EnemyKind.Walker || Kind == EnemyKind.Runner ? "mutant_growl" : "spider_skitter", transform.position, .24f);
+            }
         }
 
         private void FixedUpdate()
@@ -150,7 +169,12 @@ namespace PlanB
 
         protected void Move(GameManager game, Vector2 target)
         {
-            Vector2 steering = game.Floors.Steer(Body.position, target);
+            // Continue smooth physics movement; refresh the expensive route only about ten times a second.
+            if (Time.time >= nextSteer)
+            {
+                steering = game.Floors.Steer(Body.position, target);
+                nextSteer = Time.time + .09f + voiceSeed % 5 * .007f;
+            }
             if (steering.sqrMagnitude < .001f) return;
             steering.Normalize();
             lastMovement = steering;
@@ -162,7 +186,7 @@ namespace PlanB
             Vector2 origin = Body != null ? Body.position : (Vector2)transform.position;
             Bullet.Spawn(origin + direction * .65f, direction, true, damage, speed, transform.parent);
             Effects.Burst(origin + direction * .65f, new Color(1f, .15f, .2f), 3);
-            AudioFactory.Play("laser", .25f);
+            if (Kind != EnemyKind.Warden) AudioFactory.PlayAt("laser", origin, .35f);
         }
 
         private void OnCollisionEnter2D(Collision2D collision) { Touch(collision.collider); }
@@ -183,7 +207,7 @@ namespace PlanB
             Health = Mathf.Max(0, Health - damage);
             flashUntil = Time.time + .13f;
             Effects.Burst(transform.position, new Color(.67f, .17f, .21f), 5);
-            AudioFactory.Play("hit", .35f);
+            AudioFactory.PlayAt("hit", transform.position, .35f);
             if (Health <= 0) Die();
         }
 
@@ -196,6 +220,8 @@ namespace PlanB
         {
             if (IsDead) return;
             IsDead = true;
+            if (Kind != EnemyKind.Warden)
+                AudioFactory.PlayAt(Kind == EnemyKind.Walker || Kind == EnemyKind.Runner ? "mutant_death" : "spider_death", transform.position, .45f);
             Effects.Burst(transform.position, new Color(.5f, .14f, .2f), 14);
             if (Random.value < .25f)
                 Pickup.Spawn(Random.value < .65f ? PickupKind.Ammo : PickupKind.Medkit, transform.position, transform.parent);

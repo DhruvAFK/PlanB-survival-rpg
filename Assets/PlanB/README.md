@@ -44,6 +44,14 @@ SpriteFactory recreates the chat reference's dark navy/charcoal palette, warm wo
 
 Built optional features: edge darkness, warm/cold floor tint, scientists with three hints per floor, visible red security cone and ten-second alarm, traps with damage/stun, scrap/battery/wire salvage score, and the dimmed live residential level behind the title. The title backdrop is generated game scenery rather than a raster copy of the illustration.
 
+## Audio and responsiveness
+
+The sound bank now contains 52 cached clips and variants across combat, wood/metal footsteps, mutants, spiders, boss roars/bursts/death, pickups, cabinets, doors, machinery, traps, UI, alarm, victory/defeat and four ambience loops. Spatial effects use light stereo positioning and distance falloff. Repeated effects vary in pitch/gain. Floor/power ambience crossfades; pause ducks the background and stops combat tails while menu sounds remain active. The system caps effects at 12 voices plus two ambience sources, and preserves its clips/sources through editor script reloads. Sound variation uses its own random generator so it cannot change enemy/drop randomness.
+
+Projectiles reuse 64 warmed objects and debris shares one bounded native particle system. Sprites and audio are prepared on the title screen. HUD values update only when changed, boss lookup uses a cached reference, and the crosshair has its own canvas. AI route checks run roughly ten times per second while physics movement continues smoothly. Traps/cameras reuse physics buffers. The initial title's prepared maps are reused for the first start; subsequent restarts still rebuild the game completely.
+
+The polish checks passed 512 firing/impact reuse cycles without extra projectile/debris objects. Ten thousand warmed sprite lookups and one thousand unchanged HUD refreshes each allocated zero managed bytes in the Unity checks. All 52 sound clips were inspected for finite, non-silent data. These checks establish reduced allocation/recreation work; they are not a measured FPS comparison on the user's machine.
+
 ## Verification and recovery
 
 Unity compilation and automated play checks are documented in `RESUME.md`. The play check calls real gameplay components and uses actual physics projectiles; it also verifies map reachability, locked containment, progression, boss reinforcements, pause, survivor classes, victory, death and restart. It does not substitute for a human assessment of challenge or a timed 6–10-minute run.
@@ -54,7 +62,7 @@ Run the checks from a closed editor with:
 & 'C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe' -batchmode -nographics -job-worker-count 2 -projectPath 'C:\UnityProjects\Plan_B\My project' -executeMethod PlanB.Editor.PlanBSmokeTests.RunBatch -logFile 'C:\UnityProjects\Plan_B\My project\Logs\PlanBSmoke.log'
 ```
 
-The asynchronous smoke check exits Unity itself; do not add `-quit`. It writes `Assets/PlanB/Verification/SmokeResult.txt`. `RunBatchCapture` additionally writes local screenshots when run with a graphics device. Generated verification files and logs are excluded from Git.
+The asynchronous smoke check exits Unity itself; do not add `-quit`. It writes `Assets/PlanB/Verification/SmokeResult.txt` and `PolishResult.txt`. `RunBatchCapture` additionally writes local screenshots when run with a graphics device. Generated verification files and logs are excluded from Git.
 
 The Windows restart and Unity Safe Mode repair are recorded in `RECOVERY.md`. Original scenes, art, package manifests and project settings were preserved.
 

@@ -23,7 +23,7 @@ namespace PlanB
                     "Scientist: Unlock the red quarantine door east of here. The Warden controls our exit.",
                     "Scientist: Save room to dodge its bursts. Return to this elevator when it falls." };
             gm.Notify(hints[line % hints.Length], 5.5f); line++;
-            AudioFactory.Play("pickup", .25f);
+            AudioFactory.PlayAt("scientist", transform.position, .25f);
         }
     }
 }

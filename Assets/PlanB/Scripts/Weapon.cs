@@ -56,7 +56,12 @@ namespace PlanB
         public bool Fire(Vector2 aim)
         {
             if (Reloading || Time.time < fireReady || !GameManager.Instance.IsPlaying) return false;
-            if (Magazine <= 0) { Reload(); return false; }
+            if (Magazine <= 0)
+            {
+                if (Reserve > 0) Reload();
+                else { fireReady = Time.time + .3f; AudioFactory.Play("dryfire", .35f); }
+                return false;
+            }
             Magazine--; fireReady = Time.time + .25f; flashUntil = Time.time + .055f;
             Vector2 origin = (Vector2)transform.position + Vector2.down * .1f;
             // Cast from the actor, so a muzzle close to a wall cannot fire through it.

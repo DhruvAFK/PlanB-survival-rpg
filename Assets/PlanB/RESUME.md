@@ -16,9 +16,11 @@ The corrupt shared compiler-cache entry has been quarantined. Thirty damaged new
 
 Verified title bootstrap, actual projectile damage against a collider, timed reload, pause, both ASCII map routes, fuse collection/consumption, generator power, elevator transition, key pickup, locked containment, dormant boss protection, half-health summons, boss defeat, exit victory, death/restart, all three character classes, traps and exactly one active floor after script reload/restart.
 
-Read `Assets/PlanB/Verification/SmokeResult.txt` and `Logs/PlanBFinalVerification.log` for the result. Four rendered previews are saved locally under `Verification`; title, residential and research images were visually inspected. The old-floor visibility issue found by that inspection was fixed and checked again. Prior failed runs are retained as diagnostic evidence.
+Read `Assets/PlanB/Verification/SmokeResult.txt`, `PolishResult.txt` and `Logs/PlanBPolishVerified.log` for the latest result. Five rendered previews are saved locally under `Verification`; title, residential, research and the optimized pixel debris have been visually inspected. The old-floor visibility issue found during the original build was fixed and checked again. Prior failed runs are retained as diagnostic evidence.
 
-All game code and documentation are saved in local milestone commits. Existing tracked project content remains unchanged. The last usage check reported 7% for both the short and weekly windows; the short window reset during this work. The 50% stop threshold was not reached.
+Performance/audio polish is complete: warmed projectile/debris reuse, allocation-free sprite cache hits and unchanged HUD refreshes, throttled AI/physics scans, cached boss/actor references, 52 sound clips/variants, bounded voices, floor ambience, pause ducking and script-reload audio recovery. The full gameplay and new pool/allocation/audio checks passed without C# errors, C# warnings or game exceptions. All game code and documentation are saved in local commits; existing project content outside PlanB remains unchanged.
+
+The last usage check during this polish pass reported 29% in the short window and 11% in the weekly window. The 50% stop threshold was not reached.
 
 ## Next steps if work is interrupted
 

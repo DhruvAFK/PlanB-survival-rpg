@@ -16,6 +16,10 @@ namespace PlanB
         string spriteKey;
         float invincibleUntil, bashReady, walkTime;
         int direction, meleeDamage;
+        Camera aimCamera;
+        int lastFrame = -1, lastDirection = -1;
+        Vector2 lastFootPosition;
+        float footDistance;
 
         void Awake()
         {
@@ -42,6 +46,9 @@ namespace PlanB
             spriteKey = character.ToString().ToLowerInvariant();
             Weapon.Configure(character);
             sprite.sprite = SpriteLibrary.Get(spriteKey, 1, 0);
+            lastFrame = lastDirection = -1;
+            footDistance = 0;
+            lastFootPosition = transform.position;
         }
 
         void Update()
@@ -49,8 +56,9 @@ namespace PlanB
             var game = GameManager.Instance;
             if (game == null || !game.IsPlaying) { movement = Vector2.zero; return; }
             movement = InputBridge.Move;
-            var camera = game.CameraRig.GetComponent<Camera>();
-            Vector3 mouse = camera.ScreenToWorldPoint(new Vector3(InputBridge.MousePosition.x, InputBridge.MousePosition.y, -camera.transform.position.z));
+            if (aimCamera == null) aimCamera = game.CameraRig.GetComponent<Camera>();
+            Vector2 mousePosition = InputBridge.MousePosition;
+            Vector3 mouse = aimCamera.ScreenToWorldPoint(new Vector3(mousePosition.x, mousePosition.y, -aimCamera.transform.position.z));
             Vector2 aim = (Vector2)(mouse - transform.position);
             if (aim.sqrMagnitude > .02f) Aim = aim.normalized;
             var facing = movement.sqrMagnitude > .01f ? movement : Aim;
@@ -58,7 +66,11 @@ namespace PlanB
             if (movement.sqrMagnitude > .01f) walkTime += Time.deltaTime * 8;
             int tick = Mathf.FloorToInt(walkTime) % 4;
             int frame = movement.sqrMagnitude > .01f ? tick == 3 ? 1 : tick : 1;
-            sprite.sprite = SpriteLibrary.Get(spriteKey, frame, direction);
+            if (frame != lastFrame || direction != lastDirection)
+            {
+                sprite.sprite = SpriteLibrary.Get(spriteKey, frame, direction);
+                lastFrame = frame; lastDirection = direction;
+            }
             sprite.sortingOrder = 100 - Mathf.RoundToInt(transform.position.y * 5);
             sprite.color = Time.time < invincibleUntil ? new Color(1, .55f, .5f, .8f + .2f * Mathf.Sin(Time.time * 30)) : Color.white;
             FindInteraction();
@@ -66,6 +78,20 @@ namespace PlanB
             if (InputBridge.BashPressed) Bash();
             if (InputBridge.TrapPressed) Trap.TryPlace();
             Weapon.Tick(Aim);
+            Footsteps(game);
+        }
+
+        void Footsteps(GameManager game)
+        {
+            float distance = Vector2.Distance(body.position, lastFootPosition);
+            lastFootPosition = body.position;
+            if (movement.sqrMagnitude < .01f) { footDistance = 0; return; }
+            if (distance > 1) return; // A teleport is not a footstep.
+            footDistance += distance;
+            if (footDistance < .72f) return;
+            footDistance %= .72f;
+            bool metal = game.Floors.ActiveLevel != null && game.Floors.ActiveLevel.IsMetalFloor(body.position);
+            AudioFactory.Play(metal ? "step_metal" : "step_wood", .2f);
         }
 
         void FixedUpdate()
@@ -90,11 +116,14 @@ namespace PlanB
         {
             if (Time.time < bashReady) return;
             bashReady = Time.time + .6f;
-            AudioFactory.Play("hit", .45f);
+            AudioFactory.Play("bash", .45f);
             Effects.Burst((Vector2)transform.position + Aim * .8f, new Color(1, .7f, .35f), 5);
-            var enemies = GameManager.Instance.Floors.ActiveRoot.GetComponentsInChildren<Enemy>();
-            foreach (Enemy enemy in enemies)
+            var floors = GameManager.Instance.Floors;
+            var enemies = floors.Enemies;
+            for (int i = 0; i < enemies.Count; i++)
             {
+                Enemy enemy = enemies[i];
+                if (enemy == null || enemy.FloorNumber != floors.CurrentFloor) continue;
                 Vector2 offset = enemy.transform.position - transform.position;
                 if (!enemy.IsDead && offset.sqrMagnitude <= 1.55f * 1.55f && Vector2.Dot(offset.normalized, Aim) > -.15f)
                 {
@@ -111,13 +140,19 @@ namespace PlanB
             invincibleUntil = Time.time + .75f;
             Health = Mathf.Max(0, Health - damage);
             AudioFactory.Play("hurt"); game.DamageFlash(); game.CameraRig.Shake(.18f);
+            game.Hud.Refresh();
             if (Health == 0) game.EndRun(false);
         }
-        public void Heal(int amount) { Health = Mathf.Min(MaxHealth, Health + amount); }
+        public void Heal(int amount)
+        {
+            Health = Mathf.Min(MaxHealth, Health + amount);
+            if (GameManager.Instance != null) GameManager.Instance.Hud.Refresh();
+        }
         public void Teleport(Vector2 position)
         {
             body.position = position; transform.position = position;
             movement = Vector2.zero; Nearby = null; invincibleUntil = Time.time + 1.5f;
+            lastFootPosition = position; footDistance = 0;
         }
     }
 }

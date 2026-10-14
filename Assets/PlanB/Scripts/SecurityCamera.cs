@@ -6,9 +6,20 @@ namespace PlanB
     {
         public Vector2 Direction = Vector2.left;
         private float nextAlarm;
+        private float nextScan;
         private Mesh cone;
         private const float Reach = 6;
         private const float HalfAngle = 26;
+        private static readonly float MinimumDot = Mathf.Cos(HalfAngle * Mathf.Deg2Rad);
+        private static readonly ContactFilter2D WallFilter = MakeWallFilter();
+        private readonly RaycastHit2D[] hits = new RaycastHit2D[1];
+
+        private static ContactFilter2D MakeWallFilter()
+        {
+            var filter = new ContactFilter2D { useTriggers = false };
+            filter.SetLayerMask(1 << 8);
+            return filter;
+        }
 
         private void Start()
         {
@@ -34,11 +45,11 @@ namespace PlanB
         private void Update()
         {
             var gm = GameManager.Instance;
-            if (gm == null || !gm.IsPlaying || gm.Player == null || Time.time < nextAlarm) return;
+            if (gm == null || !gm.IsPlaying || gm.Player == null || Time.time < nextAlarm || Time.time < nextScan) return;
+            nextScan = Time.time + .1f;
             Vector2 delta = gm.Player.transform.position - transform.position;
-            if (delta.magnitude > Reach || Vector2.Angle(Direction, delta) > HalfAngle) return;
-            var hits = Physics2D.LinecastAll(transform.position, gm.Player.transform.position);
-            foreach (var hit in hits) if (hit.collider != null && hit.collider.GetComponent<SolidWall>() != null) return;
+            if (delta.sqrMagnitude > Reach * Reach || Vector2.Dot(Direction.normalized, delta.normalized) < MinimumDot) return;
+            if (Physics2D.Linecast(transform.position, gm.Player.transform.position, WallFilter, hits) > 0) return;
             nextAlarm = Time.time + 12;
             gm.Alarm(10);
         }

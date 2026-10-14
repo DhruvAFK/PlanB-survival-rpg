@@ -70,6 +70,7 @@ namespace PlanB.Editor
             var oldMode = canvas.renderMode;
             var oldCamera = canvas.worldCamera;
             var oldDistance = canvas.planeDistance;
+            int oldOrder = canvas.sortingOrder;
             var scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
             bool oldScaler = scaler.enabled;
             float oldScale = canvas.scaleFactor;
@@ -81,6 +82,7 @@ namespace PlanB.Editor
                 camera.targetTexture = target;
                 scaler.enabled = false; canvas.scaleFactor = 1;
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.sortingOrder = 5000;
                 canvas.worldCamera = camera; canvas.planeDistance = 1;
                 Canvas.ForceUpdateCanvases(); camera.Render();
                 RenderTexture.active = target;
@@ -91,6 +93,7 @@ namespace PlanB.Editor
             {
                 camera.targetTexture = oldTarget; canvas.renderMode = oldMode;
                 canvas.worldCamera = oldCamera; canvas.planeDistance = oldDistance;
+                canvas.sortingOrder = oldOrder;
                 scaler.enabled = oldScaler; canvas.scaleFactor = oldScale;
                 RenderTexture.active = oldActive;
                 UnityEngine.Object.DestroyImmediate(pixels); RenderTexture.ReleaseTemporary(target);
@@ -183,6 +186,11 @@ namespace PlanB.Editor
                     case 12:
                         Require(game.Player.MaxHealth == 90 && Mathf.Abs(game.Player.MoveSpeed - 4.25f) < .01f, "Scout stats failed.");
                         Require(Trap.TryPlace() && game.TrapCount == 1, "Trap placement failed.");
+                        PlanBPolishChecks.Verify(game);
+                        Effects.Burst((Vector2)game.Player.transform.position + Vector2.right, new Color(1, .6f, .2f), 14);
+                        Later(.12f); break;
+                    case 13:
+                        Shot("05-combat-feedback");
                         Finish(true, "Title, real projectile damage, reload, pause, both map routes, fuse, generator, elevator, key, containment, boss reinforcements/death, escape, death/restart and all survivor classes passed."); break;
                 }
             }

@@ -10,6 +10,9 @@ namespace PlanB
         public LevelBuilder ActiveLevel { get; private set; }
         [SerializeField] private LevelBuilder[] levels = new LevelBuilder[2];
         [SerializeField] private List<Enemy> enemies = new List<Enemy>();
+        [SerializeField] private Boss[] bosses = new Boss[2];
+        public IReadOnlyList<Enemy> Enemies { get { return enemies; } }
+        public Boss ActiveBoss { get { return bosses[CurrentFloor - 1]; } }
         public int EnemiesRemaining
         {
             get
@@ -59,6 +62,8 @@ namespace PlanB
             if (enemy == null) return;
             enemy.FloorNumber = floor;
             if (!enemies.Contains(enemy)) enemies.Add(enemy);
+            var boss = enemy as Boss;
+            if (boss != null) bosses[Mathf.Clamp(floor - 1, 0, 1)] = boss;
         }
 
         public Vector2 SpawnPoint(int floor)
@@ -84,6 +89,7 @@ namespace PlanB
         public void Clear()
         {
             enemies.Clear();
+            bosses[0] = bosses[1] = null;
             // Enumerate owned roots as well: an editor assembly reload can reset managed caches.
             foreach (var ownedLevel in GetComponentsInChildren<LevelBuilder>(true))
             {

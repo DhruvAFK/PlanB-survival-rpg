@@ -22,6 +22,12 @@ namespace PlanB
         GameObject reticle;
         float flash, noticeUntil;
         string notice;
+        RectTransform reticleRect;
+        float refreshReady;
+        int shownHealth = -1, shownMaxHealth = -1, shownMagazine = -1, shownReserve = -1;
+        int shownFloor = -1, shownEnemies = -1, shownInventory = -1, shownBossHealth = -1, shownBossMax = -1;
+        bool shownReloading;
+        string shownPrompt = "\0";
 
         void Awake()
         {
@@ -53,6 +59,9 @@ namespace PlanB
             reticle = new GameObject("Crosshair", typeof(RectTransform));
             reticle.transform.SetParent(canvasRect, false);
             var rr = reticle.GetComponent<RectTransform>(); rr.sizeDelta = new Vector2(24, 24);
+            reticleRect = rr;
+            var crosshairCanvas = reticle.AddComponent<Canvas>();
+            crosshairCanvas.overrideSorting = true; crosshairCanvas.sortingOrder = 101;
             Box(rr, "Left", -12, -1, 7, 2, Amber);
             Box(rr, "Right", 5, -1, 7, 2, Amber);
             Box(rr, "Top", -1, -12, 2, 7, Amber);
@@ -153,41 +162,70 @@ namespace PlanB
 
         void Update()
         {
-            Refresh();
+            if (hudRoot.gameObject.activeSelf && Time.unscaledTime >= refreshReady) Refresh();
             flash = Mathf.MoveTowards(flash, 0, Time.unscaledDeltaTime * .85f);
             damageFlash.color = new Color(.85f, .025f, .04f, flash);
             noticeText.text = Time.unscaledTime < noticeUntil ? notice : "";
             bool playing = GameManager.Instance != null && GameManager.Instance.IsPlaying;
-            reticle.SetActive(playing);
+            if (reticle.activeSelf != playing) reticle.SetActive(playing);
             if (playing)
             {
                 Vector2 local;
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, InputBridge.MousePosition, null, out local);
-                reticle.GetComponent<RectTransform>().anchoredPosition = local;
+                reticleRect.anchoredPosition = local;
             }
+            var game = GameManager.Instance;
+            if (game != null && game.Player != null)
+                reloadFill.rectTransform.sizeDelta = new Vector2(450 * game.Player.Weapon.ReloadProgress, 3);
         }
 
         public void Refresh()
         {
             var game = GameManager.Instance;
             if (game == null || game.Player == null || healthText == null) return;
+            refreshReady = Time.unscaledTime + .1f;
             var player = game.Player;
-            healthText.text = player.Health + " / " + player.MaxHealth;
-            healthFill.rectTransform.sizeDelta = new Vector2(220f * player.Health / player.MaxHealth, 8);
-            var weapon = player.Weapon;
-            ammoText.text = weapon.Reloading ? "RELOADING…" : weapon.Magazine.ToString("00") + " / " + weapon.Reserve.ToString("00");
-            ammoText.fontSize = weapon.Reloading ? 24 : 32;
-            reloadFill.rectTransform.sizeDelta = new Vector2(450 * weapon.ReloadProgress, 3);
-            floorText.text = game.Floors.CurrentFloor == 1 ? "01 / RESIDENTIAL + MAINTENANCE" : "02 / RESEARCH + SECURITY";
-            objectiveText.text = game.Objective;
-            enemiesText.text = game.Floors.EnemiesRemaining.ToString("00") + " HOSTILES";
-            promptText.text = player.Nearby != null ? "[ E ]  " + player.Nearby.Prompt.Replace("[E]", "").Trim() : "";
-            promptText.transform.parent.gameObject.SetActive(player.Nearby != null);
-            inventoryText.text = (game.HasFuse ? "[ FUSE ]   " : "") + (game.HasKey ? "[ SECURITY KEY ]   " : "") + "TRAPS " + game.TrapCount + " / 2" + (Time.time < game.AlarmUntil ? "     • SECURITY ALERT" : "");
-            Boss boss = game.Floors.ActiveRoot != null ? game.Floors.ActiveRoot.GetComponentInChildren<Boss>() : null;
-            bossPanel.gameObject.SetActive(boss != null && !boss.IsDead && game.DoorUnlocked);
-            if (boss != null)
+            if (player.Health != shownHealth || player.MaxHealth != shownMaxHealth)
             {
+                shownHealth = player.Health; shownMaxHealth = player.MaxHealth;
+                healthText.text = shownHealth + " / " + shownMaxHealth;
+                healthFill.rectTransform.sizeDelta = new Vector2(220f * shownHealth / shownMaxHealth, 8);
+            }
+            var weapon = player.Weapon;
+            if (weapon.Magazine != shownMagazine || weapon.Reserve != shownReserve || weapon.Reloading != shownReloading)
+            {
+                shownMagazine = weapon.Magazine; shownReserve = weapon.Reserve; shownReloading = weapon.Reloading;
+                ammoText.text = shownReloading ? "RELOADING…" : shownMagazine.ToString("00") + " / " + shownReserve.ToString("00");
+                ammoText.fontSize = shownReloading ? 24 : 32;
+            }
+            if (shownFloor != game.Floors.CurrentFloor)
+            {
+                shownFloor = game.Floors.CurrentFloor;
+                floorText.text = shownFloor == 1 ? "01 / RESIDENTIAL + MAINTENANCE" : "02 / RESEARCH + SECURITY";
+            }
+            if (objectiveText.text != game.Objective) objectiveText.text = game.Objective;
+            int count = game.Floors.EnemiesRemaining;
+            if (count != shownEnemies) { shownEnemies = count; enemiesText.text = count.ToString("00") + " HOSTILES"; }
+            var nearby = player.Nearby;
+            string prompt = nearby != null && nearby.isActiveAndEnabled && nearby.Available ? nearby.Prompt : null;
+            if (shownPrompt != prompt)
+            {
+                shownPrompt = prompt;
+                promptText.text = prompt != null ? "[ E ]  " + prompt.Replace("[E]", "").Trim() : "";
+                promptText.transform.parent.gameObject.SetActive(prompt != null);
+            }
+            int inventory = (game.HasFuse ? 1 : 0) | (game.HasKey ? 2 : 0) | (Time.time < game.AlarmUntil ? 4 : 0) | (game.TrapCount << 3);
+            if (inventory != shownInventory)
+            {
+                shownInventory = inventory;
+                inventoryText.text = (game.HasFuse ? "[ FUSE ]   " : "") + (game.HasKey ? "[ SECURITY KEY ]   " : "") + "TRAPS " + game.TrapCount + " / 2" + ((inventory & 4) != 0 ? "     • SECURITY ALERT" : "");
+            }
+            Boss boss = game.Floors.ActiveBoss;
+            bool showBoss = boss != null && !boss.IsDead && game.DoorUnlocked;
+            if (bossPanel.gameObject.activeSelf != showBoss) bossPanel.gameObject.SetActive(showBoss);
+            if (boss != null && (boss.Health != shownBossHealth || boss.MaxHealth != shownBossMax))
+            {
+                shownBossHealth = boss.Health; shownBossMax = boss.MaxHealth;
                 bossText.text = "THE WARDEN    /    " + boss.Health + " HP";
                 bossFill.rectTransform.sizeDelta = new Vector2(614f * boss.Health / Mathf.Max(1, boss.MaxHealth), 7);
             }
@@ -225,7 +263,9 @@ namespace PlanB
             var r = Box(parent, title, x, y, width, height, primary ? Amber : new Color(.12f, .17f, .20f));
             var image = r.GetComponent<Image>(); image.raycastTarget = true;
             var button = r.gameObject.AddComponent<Button>(); button.targetGraphic = image;
+            r.gameObject.AddComponent<UISound>();
             var colors = button.colors; colors.highlightedColor = new Color(1, .85f, .56f); colors.pressedColor = new Color(.65f, .65f, .65f); button.colors = colors;
+            button.onClick.AddListener(() => AudioFactory.Play("ui_click", .45f));
             button.onClick.AddListener(click);
             Label(r, title, 8, 0, width - 16, height, height < 35 ? 14 : 20, primary ? Navy : Pale, TextAnchor.MiddleCenter);
         }

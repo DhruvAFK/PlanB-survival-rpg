@@ -65,7 +65,9 @@ namespace PlanB
                 case PickupKind.Trap: gm.TrapCount = Mathf.Min(2, gm.TrapCount + Amount); message = "TRAP FOUND  •  Press T to place."; break;
             }
             collected = true;
-            AudioFactory.Play("pickup", .8f);
+            string sound = Kind == PickupKind.Ammo ? "pickup_ammo" : Kind == PickupKind.Medkit ? "pickup_medkit" :
+                Kind == PickupKind.Fuse ? "pickup_fuse" : Kind == PickupKind.Key ? "pickup_key" : "pickup";
+            AudioFactory.Play(sound, .7f);
             gm.Notify(message, Kind == PickupKind.Fuse || Kind == PickupKind.Key ? 4 : 2);
             gm.RefreshObjective();
             gameObject.SetActive(false);

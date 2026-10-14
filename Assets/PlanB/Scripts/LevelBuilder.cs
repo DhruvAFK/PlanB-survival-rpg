@@ -291,6 +291,14 @@ namespace PlanB
             SpawnEnemies(manager, EnemyKind.Warden, new Vector2Int(40,22));
         }
 
+        public bool IsMetalFloor(Vector2 position)
+        {
+            var cell = Grid(position);
+            if (map == null || cell.x < 0 || cell.x >= Width || cell.y < 0 || cell.y >= Height) return FloorNumber == 2;
+            char tile = map[cell.y][cell.x];
+            return FloorNumber == 2 || tile == 'm' || tile == 'h';
+        }
+
         public bool IsWalkable(int column, int row)
         {
             if (column < 0 || column >= Width || row < 0 || row >= Height || map == null || map[row][column] == '#' || furniture.Contains(new Vector2Int(column, row))) return false;

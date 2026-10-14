@@ -19,6 +19,7 @@ namespace PlanB
         public int Scrap, Battery, Wire, TrapCount = 2, Kills;
         public float AlarmUntil, RunTime;
         RenderPipelineAsset originalPipeline, originalQualityPipeline;
+        bool freshTitleRun;
         public bool IsPlaying { get { return Phase == GamePhase.Playing; } }
         public string Objective
         {
@@ -66,6 +67,7 @@ namespace PlanB
         void OnDestroy()
         {
             if (Instance != this) return;
+            Bullet.ClearActive(); Effects.ClearActive(); AudioFactory.StopAmbience();
             Time.timeScale = 1;
             GraphicsSettings.defaultRenderPipeline = originalPipeline;
             QualitySettings.renderPipeline = originalQualityPipeline;
@@ -74,7 +76,14 @@ namespace PlanB
 
         void Start()
         {
+            AudioFactory.Warmup(); Bullet.Warmup(); Effects.Warmup();
+            string[] animated = { "fighter", "engineer", "scout", "walker", "runner", "crawler", "spitter", "warden" };
+            foreach (string key in animated)
+                for (int direction = 0; direction < (key == "fighter" || key == "engineer" || key == "scout" ? 4 : 1); direction++)
+                    for (int frame = 0; frame < 3; frame++) SpriteLibrary.Get(key, frame, direction);
             BuildRun();
+            freshTitleRun = true;
+            AudioFactory.SetAmbience(1, false);
             Hud.ShowMenu(GamePhase.Title);
         }
 
@@ -88,6 +97,7 @@ namespace PlanB
         void BuildRun()
         {
             Time.timeScale = 1f;
+            Bullet.ClearActive(); Effects.ClearActive();
             if (Player != null) { Player.gameObject.SetActive(false); Destroy(Player.gameObject); }
             HasFuse = PowerRestored = HasKey = DoorUnlocked = BossDefeated = false;
             Scrap = Battery = Wire = Kills = 0; TrapCount = 2;
@@ -106,8 +116,12 @@ namespace PlanB
         public void StartRun()
         {
             Phase = GamePhase.Title;
-            BuildRun();
+            if (freshTitleRun) Player.ResetFor(SelectedClass);
+            else BuildRun();
+            freshTitleRun = false;
             Phase = GamePhase.Playing;
+            AudioFactory.SetPaused(false);
+            AudioFactory.SetAmbience(1, false);
             Hud.ShowMenu(Phase);
             Notify("Find the fuse in storage. E to interact. Space to bash.", 6);
         }
@@ -116,6 +130,9 @@ namespace PlanB
         {
             Time.timeScale = 1;
             Phase = GamePhase.Title;
+            Bullet.ClearActive(); Effects.ClearActive();
+            AudioFactory.SetPaused(false);
+            AudioFactory.SetAmbience(Floors.CurrentFloor, PowerRestored);
             Hud.ShowMenu(Phase);
         }
 
@@ -123,16 +140,19 @@ namespace PlanB
         {
             Phase = paused ? GamePhase.Paused : GamePhase.Playing;
             Time.timeScale = paused ? 0 : 1;
+            AudioFactory.SetPaused(paused);
             Hud.ShowMenu(Phase);
         }
 
         public void ChangeFloor(int floor)
         {
             if (Player == null) return;
+            Bullet.ClearActive(); Effects.ClearActive();
             Floors.EnterFloor(floor);
             Player.Teleport(Floors.SpawnPoint(floor));
             CameraRig.Snap();
             AudioFactory.Play("elevator");
+            AudioFactory.SetAmbience(floor, PowerRestored);
             RefreshObjective();
             Notify(floor == 2 ? "Research level. Find the security key, then enter containment." : "Residential level.", 5);
         }
@@ -141,6 +161,9 @@ namespace PlanB
         {
             if (Phase == GamePhase.Won || Phase == GamePhase.Lost) return;
             Phase = won ? GamePhase.Won : GamePhase.Lost;
+            Bullet.ClearActive(); Effects.ClearActive();
+            AudioFactory.StopAmbience();
+            AudioFactory.Play(won ? "win" : "loss", .8f);
             Time.timeScale = 0;
             Hud.ShowMenu(Phase);
         }
@@ -160,6 +183,7 @@ namespace PlanB
         public void Alarm(float duration)
         {
             AlarmUntil = Time.time + duration;
+            AudioFactory.Play("alarm", .6f);
             Notify("SECURITY ALERT — creatures are tracking you", 3);
         }
         public void Notify(string message, float duration = 3f) { if (Hud != null) Hud.Notify(message, duration); }

@@ -25,6 +25,7 @@ namespace PlanB
             SetSprite("generator_on"); sparkTimer = 1.4f;
             gm.Notify("POWER RESTORED  •  The south elevator is online.", 5);
             AudioFactory.Play("generator");
+            AudioFactory.SetAmbience(1, true);
             gm.RefreshObjective();
         }
 

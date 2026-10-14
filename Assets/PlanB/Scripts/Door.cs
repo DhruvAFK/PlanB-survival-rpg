@@ -30,7 +30,11 @@ namespace PlanB
             if (Locked || open && gate != null) return;
             var gm = GameManager.Instance;
             bool near = gm != null && gm.Player != null && Vector2.Distance(gm.Player.transform.position, transform.position) < 1.9f;
-            if (near != open) { open = near; SetSprite(open ? "door_open" : "door"); }
+            if (near != open)
+            {
+                open = near; SetSprite(open ? "door_open" : "door");
+                if (gm.IsPlaying) AudioFactory.PlayAt("door", transform.position, .22f);
+            }
         }
 
         public override void Interact()
@@ -39,7 +43,7 @@ namespace PlanB
             if (!Locked || open || gm == null) return;
             if (!gm.HasKey)
             {
-                gm.Notify("Find the security key in the server room.", 3); AudioFactory.Play("hit", .3f); return;
+                gm.Notify("Find the security key in the server room.", 3); AudioFactory.Play("locked", .3f); return;
             }
             open = true;
             gm.DoorUnlocked = true;
@@ -47,7 +51,7 @@ namespace PlanB
             SetSprite("lockeddoor_open");
             if (gm.Floors != null && gm.Floors.ActiveLevel != null) gm.Floors.ActiveLevel.InvalidatePaths();
             gm.Notify("QUARANTINE OPEN  •  Defeat the Warden.", 4);
-            AudioFactory.Play("generator", .65f);
+            AudioFactory.Play("unlock", .65f);
             gm.RefreshObjective();
         }
     }

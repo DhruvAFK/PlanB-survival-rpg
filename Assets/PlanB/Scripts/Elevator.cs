@@ -29,12 +29,12 @@ namespace PlanB
             if (gm == null) return;
             if (FloorNumber == 1)
             {
-                if (!gm.PowerRestored) { gm.Notify("Restore the maintenance generator before descending.", 3); return; }
-                AudioFactory.Play("elevator"); gm.ChangeFloor(2);
+                if (!gm.PowerRestored) { gm.Notify("Restore the maintenance generator before descending.", 3); AudioFactory.Play("locked", .3f); return; }
+                gm.ChangeFloor(2);
             }
             else
             {
-                if (!gm.BossDefeated) { gm.Notify("The exit is sealed until the Warden is eliminated.", 3); return; }
+                if (!gm.BossDefeated) { gm.Notify("The exit is sealed until the Warden is eliminated.", 3); AudioFactory.Play("locked", .3f); return; }
                 AudioFactory.Play("elevator"); gm.EndRun(true);
             }
         }

@@ -18,7 +18,7 @@ namespace PlanB
             Pickup.Spawn(ammo ? PickupKind.Ammo : PickupKind.Medkit,
                 (Vector2)transform.position + Vector2.down * .85f, transform.parent);
             gm.Notify(ammo ? "Cabinet: ammunition recovered." : "Cabinet: medical supplies recovered.", 2);
-            AudioFactory.Play("pickup", .6f);
+            AudioFactory.PlayAt("cabinet", transform.position, .6f);
         }
     }
 }

@@ -21,10 +21,12 @@ namespace PlanB
                 awakened = true;
                 nextBurst = Time.time + 2.8f;
                 game.Notify("WARDEN AWAKENED — keep moving", 3);
+                AudioFactory.Play("boss_roar", .7f);
             }
             if (distance > .75f) Move(game, game.Player.transform.position);
             if (Time.time < nextBurst) return;
             nextBurst = Time.time + 5;
+            AudioFactory.PlayAt("boss_burst", transform.position, .65f);
             float offset = Random.Range(0f, 30f);
             for (int i = 0; i < 12; i++)
             {
@@ -56,6 +58,7 @@ namespace PlanB
         protected override void Die()
         {
             if (IsDead) return;
+            AudioFactory.Play("boss_death", .75f);
             var game = GameManager.Instance;
             if (game != null && game.Floors != null) game.Floors.BossKilled();
             base.Die();
