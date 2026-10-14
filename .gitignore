@@ -16,7 +16,5 @@
 *.unityproj
 *.log
 *.tmp
-Assets/PlanB/Verification/*.png
-Assets/PlanB/Verification/*.json
-Assets/PlanB/Verification/*.txt
-Assets/PlanB/Verification/*.xml
+Assets/PlanB/Verification/
+Assets/PlanB/Verification.meta
