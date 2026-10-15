@@ -16,11 +16,29 @@ namespace PlanB
         public static Sprite Create(string key, int frame = 0, int direction = 0)
         {
             key = string.IsNullOrEmpty(key) ? "tile_metal" : key.ToLowerInvariant();
+            int width, height;
+            Color32[] pixels = CreatePixels(key, out width, out height, frame, direction);
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            texture.name = "PlanB Procedural " + key + " " + direction + " " + frame;
+            texture.filterMode = FilterMode.Point;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            Sprite result = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), PixelsPerUnit, 0, SpriteMeshType.FullRect);
+            result.name = texture.name;
+            return result;
+        }
+
+        // Static terrain can copy original pixels without keeping textures readable or reading the GPU.
+        public static Color32[] CreatePixels(string key, out int width, out int height, int frame = 0, int direction = 0)
+        {
+            key = string.IsNullOrEmpty(key) ? "tile_metal" : key.ToLowerInvariant();
             frame = ((frame % 3) + 3) % 3;
             direction = ((direction % 4) + 4) % 4;
             bool actor = key == "fighter" || key == "engineer" || key == "scout" || key == "scientist";
-            int width = actor ? 40 : 48;
-            int height = key.StartsWith("elevator", StringComparison.Ordinal) ? 64 : 48;
+            width = actor ? 40 : 48;
+            height = key.StartsWith("elevator", StringComparison.Ordinal) ? 64 : 48;
+            if (key == "door" || key == "door_open" || key == "lockeddoor" || key == "lockeddoor_open") { width = 32; height = 64; }
             if (key == "gun") { width = 24; height = 12; }
             if (key == "bullet") { width = 12; height = 5; }
             if (key == "laser") { width = 24; height = 9; }
@@ -31,15 +49,7 @@ namespace PlanB
             else if (key == "crawler" || key == "spitter" || key == "warden") Spider(p, frame, key);
             else if (key.StartsWith("tile_", StringComparison.Ordinal) || key == "carpet") Tile(p, key);
             else ObjectArt(p, key);
-            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            texture.name = "PlanB Procedural " + key + " " + direction + " " + frame;
-            texture.filterMode = FilterMode.Point;
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.SetPixels32(p.Pixels);
-            texture.Apply(false, true);
-            Sprite result = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), PixelsPerUnit, 0, SpriteMeshType.FullRect);
-            result.name = texture.name;
-            return result;
+            return p.Pixels;
         }
 
         private static void Tile(Canvas p, string key)
@@ -472,27 +482,31 @@ namespace PlanB
         private static void Door(Canvas p, string key)
         {
             bool locked = key.StartsWith("locked", StringComparison.Ordinal), opened = key.EndsWith("_open", StringComparison.Ordinal);
-            Box(p, 3, 1, 42, 46, locked ? C(0x563039) : C(0x55412f), locked ? C(0x98504c) : C(0x94704c));
-            p.Rect(7, 3, 34, 40, Ink);
+            Color32 frame = locked ? C(0x98504c) : C(0x94704c);
+            // Separate jambs/header leave the open aperture transparent, showing the real floor.
+            p.Rect(1, 0, 4, 64, Ink); p.Rect(27, 0, 4, 64, Ink);
+            p.Rect(2, 2, 2, 60, frame); p.Rect(28, 2, 2, 60, Shade(frame, .72f));
+            p.Rect(1, 58, 30, 6, Ink); p.Rect(3, 59, 26, 3, frame);
+            p.Rect(2, 0, 28, 4, Steel); p.Line(4, 3, 27, 3, locked ? RedLight : Gold);
             if (opened)
             {
-                p.Rect(9, 4, 25, 37, C(0x131c26)); p.Rect(7, 3, 10, 40, locked ? C(0x763c42) : Wood);
-                p.Line(15, 5, 15, 39, locked ? RedLight : WoodLight); p.Rect(11, 21, 3, 5, Gold);
+                p.Rect(5, 5, 6, 53, Ink); p.Rect(6, 6, 4, 50, locked ? C(0x763c42) : Wood);
+                p.Line(10, 7, 10, 55, locked ? RedLight : WoodLight); p.Rect(7, 28, 2, 5, Gold);
             }
             else
             {
-                Box(p, 8, 3, 32, 39, locked ? C(0x512c35) : Wood, locked ? C(0x9b4a48) : C(0xa2794b));
-                p.Frame(12, 7, 24, 29, locked ? C(0x783b41) : C(0x493628), 2);
-                p.Rect(31, 20, 3, 6, Ink); p.Pixel(32, 23, Gold);
+                Box(p, 5, 4, 22, 54, locked ? C(0x512c35) : Wood, locked ? C(0x9b4a48) : C(0xa2794b));
+                p.Frame(8, 9, 15, 42, locked ? C(0x783b41) : C(0x493628), 2);
+                p.Rect(22, 27, 3, 7, Ink); p.Pixel(23, 30, Gold);
                 if (locked)
                 {
-                    p.Frame(16, 14, 17, 18, C(0xc5584b), 2); p.Rect(20, 17, 9, 7, C(0x1a202a));
-                    p.Frame(22, 23, 5, 6, RedLight, 2); p.Pixel(24, 19, Gold);
-                    p.Rect(17, 40, 14, 3, RedLight);
+                    p.Frame(9, 22, 13, 21, C(0xc5584b), 2); p.Rect(12, 26, 7, 7, C(0x1a202a));
+                    p.Frame(13, 32, 5, 6, RedLight, 2); p.Pixel(15, 28, Gold);
+                    p.Rect(10, 53, 12, 2, RedLight);
                 }
-                else { p.Line(18, 10, 18, 32, C(0x805735)); p.Line(27, 10, 27, 32, C(0x805735)); }
+                else { p.Line(12, 13, 12, 47, C(0x805735)); p.Line(19, 13, 19, 47, C(0x805735)); }
             }
-            p.Line(5, 45, 42, 45, locked ? RedLight : C(0xc1995b)); p.Rect(4, 0, 40, 2, Steel);
+            p.Line(4, 62, 27, 62, locked ? RedLight : C(0xc1995b));
         }
 
         private static void Leaf(Canvas p, int x, int y, int w, int h)

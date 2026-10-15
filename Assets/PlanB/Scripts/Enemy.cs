@@ -119,7 +119,7 @@ namespace PlanB
         {
             if (IsDead || Visual == null) return;
             Visual.color = Time.time < flashUntil ? new Color(1f, .22f, .21f) : BaseColor;
-            Visual.sortingOrder = Mathf.RoundToInt(100 - transform.position.y * 10);
+            Visual.sortingOrder = 100 - Mathf.RoundToInt((transform.position.y - .4f * transform.localScale.y) * 5);
             if (lastMovement.sqrMagnitude > .01f) animationClock += Time.deltaTime * 7;
             int frame = lastMovement.sqrMagnitude > .01f ? (int)animationClock % 3 : 1;
             if (frame != lastFrame)

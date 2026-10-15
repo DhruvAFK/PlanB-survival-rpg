@@ -15,7 +15,7 @@ namespace PlanB
         public static Pickup Spawn(PickupKind kind, Vector2 position, Transform parent = null, int amount = 0)
         {
             string key = kind.ToString().ToLowerInvariant();
-            var renderer = LevelBuilder.Sprite(key, position, parent, 65, new Vector2(.68f, .68f));
+            var renderer = LevelBuilder.Sprite(key, position, parent, -45, new Vector2(.68f, .68f));
             var pickup = renderer.gameObject.AddComponent<Pickup>();
             pickup.Kind = kind;
             pickup.Amount = amount > 0 ? amount : kind == PickupKind.Ammo ? 12 : kind == PickupKind.Medkit ? 30 : 1;

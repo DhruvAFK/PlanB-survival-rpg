@@ -35,7 +35,7 @@ namespace PlanB
             gun.transform.localPosition = (Vector3)(aim * .37f) + Vector3.down * .1f;
             gun.transform.rotation = Quaternion.Euler(0, 0, angle);
             gun.flipY = aim.x < 0;
-            gun.sortingOrder = 105 - Mathf.RoundToInt(transform.position.y * 5);
+            gun.sortingOrder = 101 - Mathf.RoundToInt((transform.position.y - .4f) * 5);
             muzzle.transform.localPosition = (Vector3)(aim * .76f) + Vector3.down * .1f;
             muzzle.transform.rotation = gun.transform.rotation; muzzle.sortingOrder = gun.sortingOrder + 1;
             muzzle.enabled = Time.time < flashUntil;

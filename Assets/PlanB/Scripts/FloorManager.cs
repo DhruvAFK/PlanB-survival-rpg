@@ -13,6 +13,9 @@ namespace PlanB
         [SerializeField] private Boss[] bosses = new Boss[2];
         public IReadOnlyList<Enemy> Enemies { get { return enemies; } }
         public Boss ActiveBoss { get { return bosses[CurrentFloor - 1]; } }
+        readonly GridNavigationCache navigation = new GridNavigationCache();
+        public int NavigationBuilds { get { return navigation.BuildCount; } }
+        public int NavigationCacheHits { get { return navigation.CacheHits; } }
         public int EnemiesRemaining
         {
             get
@@ -44,6 +47,7 @@ namespace PlanB
             if (levels[floor - 1] == null) return;
             for (int i = 0; i < levels.Length; i++) if (levels[i] != null) levels[i].gameObject.SetActive(i == floor - 1);
             CurrentFloor = floor;
+            navigation.Reset();
             ActiveLevel = levels[floor - 1];
             ActiveRoot = ActiveLevel.transform;
             var gm = GameManager.Instance;
@@ -73,7 +77,7 @@ namespace PlanB
 
         public Vector2 Steer(Vector2 from, Vector2 target)
         {
-            return ActiveLevel == null ? (target - from).normalized : ActiveLevel.Steer(from, target);
+            return navigation.Steer(ActiveLevel, from, target, GameManager.Instance != null && GameManager.Instance.DoorUnlocked);
         }
 
         public void BossKilled()
@@ -89,6 +93,7 @@ namespace PlanB
         public void Clear()
         {
             enemies.Clear();
+            navigation.Reset();
             bosses[0] = bosses[1] = null;
             // Enumerate owned roots as well: an editor assembly reload can reset managed caches.
             foreach (var ownedLevel in GetComponentsInChildren<LevelBuilder>(true))

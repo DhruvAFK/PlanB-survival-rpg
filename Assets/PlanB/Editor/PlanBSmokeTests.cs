@@ -63,6 +63,7 @@ namespace PlanB.Editor
         static void Shot(string name)
         {
             if (!capture) return;
+            GameManager.Instance.Hud.Refresh();
             Directory.CreateDirectory("Assets/PlanB/Verification");
             var camera = GameManager.Instance.CameraRig.GetComponent<Camera>();
             var canvas = GameManager.Instance.Hud.GetComponentInChildren<Canvas>();
@@ -71,6 +72,9 @@ namespace PlanB.Editor
             var oldCamera = canvas.worldCamera;
             var oldDistance = canvas.planeDistance;
             int oldOrder = canvas.sortingOrder;
+            var children = canvas.GetComponentsInChildren<Canvas>(true);
+            var orders = new int[children.Length];
+            for (int i = 0; i < children.Length; i++) orders[i] = children[i].sortingOrder;
             var scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
             bool oldScaler = scaler.enabled;
             float oldScale = canvas.scaleFactor;
@@ -80,9 +84,11 @@ namespace PlanB.Editor
             try
             {
                 camera.targetTexture = target;
+                GameManager.Instance.CameraRig.Snap();
                 scaler.enabled = false; canvas.scaleFactor = 1;
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.sortingOrder = 5000;
+                for (int i = 0; i < children.Length; i++) children[i].sortingOrder = 5000 + orders[i];
                 canvas.worldCamera = camera; canvas.planeDistance = 1;
                 Canvas.ForceUpdateCanvases(); camera.Render();
                 RenderTexture.active = target;
@@ -94,6 +100,7 @@ namespace PlanB.Editor
                 camera.targetTexture = oldTarget; canvas.renderMode = oldMode;
                 canvas.worldCamera = oldCamera; canvas.planeDistance = oldDistance;
                 canvas.sortingOrder = oldOrder;
+                for (int i = 0; i < children.Length; i++) children[i].sortingOrder = orders[i];
                 scaler.enabled = oldScaler; canvas.scaleFactor = oldScale;
                 RenderTexture.active = oldActive;
                 UnityEngine.Object.DestroyImmediate(pixels); RenderTexture.ReleaseTemporary(target);
@@ -129,7 +136,8 @@ namespace PlanB.Editor
                     case 2:
                         Require(game.IsPlaying && game.Player.Health == 120, "Fighter initialization failed.");
                         Require(game.Floors.EnemiesRemaining == 11, "Floor1 enemy count.");
-                        ValidateRoute(1); Shot("02-residential");
+                        ValidateRoute(1); PlanBMapChecks.Verify(game, 1); Shot("02-residential");
+                        if (capture) PlanBMapChecks.CaptureOverview(game, "06-residential-map");
                         target = Enemy.Spawn(EnemyKind.Walker, LevelBuilder.Cell(8, 8), game.Floors.ActiveRoot);
                         target.enabled = false;
                         Require(game.Player.Weapon.Fire(Vector2.right), "Pistol failed to fire.");
@@ -154,7 +162,8 @@ namespace PlanB.Editor
                         foreach (var level in game.Floors.GetComponentsInChildren<LevelBuilder>(true))
                             if (level.gameObject.activeInHierarchy) activeFloors++;
                         Require(activeFloors == 1, "A prior floor remained active after restart or script reload.");
-                        ValidateRoute(2);
+                        ValidateRoute(2); PlanBMapChecks.Verify(game, 2);
+                        if (capture) PlanBMapChecks.CaptureOverview(game, "07-research-map");
                         var boss = Find<Boss>(); boss.Damage(1);
                         Require(boss.Health == 25, "Dormant boss accepted damage through containment.");
                         game.Player.Teleport(LevelBuilder.Cell(42, 5)); Later(.3f); break;
@@ -162,6 +171,9 @@ namespace PlanB.Editor
                         Require(game.HasKey, "Key did not collect.");
                         var door = Find<Door>(); door.Interact();
                         Require(game.DoorUnlocked && !door.GetComponent<Collider2D>().enabled, "Containment failed to open.");
+                        Physics2D.SyncTransforms();
+                        Require(Physics2D.CircleCast((Vector2)door.OpeningBounds.center + Vector2.left * 1.3f, .28f, Vector2.right, 2.6f, 1 << 8).collider == null,
+                            "Opened containment is still physically obstructed.");
                         Require(Reachable(game.Floors.ActiveLevel, LevelBuilder.Grid(game.Floors.SpawnPoint(2))).Contains(new Vector2Int(40, 22)), "Boss arena disconnected after unlocking.");
                         game.Player.Teleport(LevelBuilder.Cell(35, 22)); game.CameraRig.Snap();
                         Shot("03-research");

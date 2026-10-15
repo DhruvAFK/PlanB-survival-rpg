@@ -31,7 +31,7 @@ namespace PlanB
 
         public static Trap Place(Vector2 position, Transform parent = null)
         {
-            var renderer = LevelBuilder.Sprite("trap", position, parent, 12, new Vector2(.85f, .7f));
+            var renderer = LevelBuilder.Sprite("trap", position, parent, -40, new Vector2(.85f, .7f));
             var trap = renderer.gameObject.AddComponent<Trap>();
             trap.armedAt = Time.time + .3f;
             return trap;

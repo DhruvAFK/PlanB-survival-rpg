@@ -38,11 +38,21 @@ Alternatively, use **PlanB > Setup** to open the dedicated scene and make it the
 
 New implementation files live under `Assets/PlanB`. The root `.gitignore` excludes Unity-generated files and local builds. Git branch: `plan-b-unity`.
 
-`GameManager` bootstraps a single scene. `FloorManager` toggles two generated floor roots. `LevelBuilder` owns 48×28 ASCII maps, merged wall colliders, furniture and reusable breadth-first steering fields. Rigidbody2D actors use MovePosition. Projectiles raycast each movement segment to avoid tunneling. InputBridge supports both input backends with compile-time guards.
+`GameManager` bootstraps a single scene. `FloorManager` toggles two generated floor roots. `LevelBuilder` owns 48×28 ASCII maps, merged wall colliders and furniture footprints. `GridNavigationCache` retains six shared breadth-first steering fields so retreating spitters do not repeatedly invalidate chaser routes. Rigidbody2D actors use MovePosition. Projectiles raycast each movement segment to avoid tunneling. InputBridge supports both input backends with compile-time guards.
 
 SpriteFactory recreates the chat reference's dark navy/charcoal palette, warm wood/amber residential rooms, blue metal laboratories, red Fighter, helmeted Engineer, hooded Scout, humanoid mutants, red-eyed spiders, scientist, items and objects. All sprites use point filtering and deterministic pixel drawing. Players have three frames in four directions. Guns, lasers, muzzle flashes, shadows, particles and UI are also procedural. SpriteLibrary can load future individual resource replacements, then falls back to code. **Zero sprites were sliced; every current sprite is procedural**, as requested.
 
 Built optional features: edge darkness, warm/cold floor tint, scientists with three hints per floor, visible red security cone and ten-second alarm, traps with damage/stun, scrap/battery/wire salvage score, and the dimmed live residential level behind the title. The title backdrop is generated game scenery rather than a raster copy of the illustration.
+
+## Map and UI polish
+
+The facility now has continuous rugs, baked warm/cool lighting, room signs, wall trim, server racks and lamps. Terrain uses one ground sprite and 28 wall-row sprites per floor, preserving actor depth without one object per tile. Full active-floor sprite counts are 82 residential and 79 research. Bakes share ownership across restarts and recover after script reload. Furniture collision footprints are also retained across reload.
+
+The maintenance doorway now crosses an actual opening in the wall. All doors preserve their art proportions and fit inside their passage; open sprites have transparent apertures. Door/wall/actor depth ordering uses the visual base consistently. Camera movement stays inside the map bounds.
+
+The navy/teal/amber terminal UI includes cached survivor cards, clearer health/ammo/objective panels, inventory status, boss telemetry and a room-aware minimap with your position. Animated feedback uses separate canvases, and only menu controls receive UI raycasts.
+
+A matched editor test of 120 warmed 1600×900 offscreen world renders measured mean `Camera.Render` CPU time of 0.331 ms before and 0.213 ms after. Active floor transforms fell from 1,578 to 181. This isolates render submission/culling; it excludes full gameplay/UI cost and is not an FPS guarantee. Local reports are in `Verification/MapProbe-baseline.txt` and `MapProbe-after.txt`.
 
 ## Audio and responsiveness
 

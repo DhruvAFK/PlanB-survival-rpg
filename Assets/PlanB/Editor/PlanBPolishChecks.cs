@@ -41,6 +41,12 @@ namespace PlanB.Editor
             for (int i = 0; i < 1000; i++) game.Hud.Refresh();
             long hudBytes = GC.GetAllocatedBytesForCurrentThread() - beforeHud;
             Require(hudBytes == 0, "Unchanged HUD refreshes allocated " + hudBytes + " managed bytes.");
+            int mapTextures = 0;
+            foreach (var texture in Resources.FindObjectsOfTypeAll<Texture2D>())
+                if (texture.name.StartsWith("PlanB floor ", StringComparison.Ordinal) ||
+                    texture.name.StartsWith("PlanB wall atlas ", StringComparison.Ordinal) ||
+                    texture.name.StartsWith("PlanB map preview ", StringComparison.Ordinal)) mapTextures++;
+            Require(mapTextures == 6, "Map textures grew across repeated restarts: " + mapTextures);
 
             int clipsBefore = AudioFactory.CachedClipCount;
             Require(clipsBefore >= 52, "The complete sound bank was not warmed.");
@@ -87,6 +93,7 @@ namespace PlanB.Editor
             string report = "PASS\n512 fire/impact reuse cycles: 64 projectile objects, one debris system, no retained rounds/fragments.\n" +
                 "10000 warmed sprite lookups: " + spriteBytes + " managed bytes.\n1000 unchanged HUD refreshes: " + hudBytes + " managed bytes.\n" +
                 checkedClips + " non-silent finite audio clips checked. Twelve effect voices and two ambience sources; pause/menu and gameplay RNG checks passed.\n" +
+                "Six baked map textures after repeated restarts; no duplicate floor atlases retained.\n" +
                 "These are allocation/lifecycle checks, not an FPS benchmark on the user's machine.\n";
             Directory.CreateDirectory("Assets/PlanB/Verification");
             File.WriteAllText("Assets/PlanB/Verification/PolishResult.txt", report);

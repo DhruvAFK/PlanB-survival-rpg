@@ -71,7 +71,7 @@ namespace PlanB
                 sprite.sprite = SpriteLibrary.Get(spriteKey, frame, direction);
                 lastFrame = frame; lastDirection = direction;
             }
-            sprite.sortingOrder = 100 - Mathf.RoundToInt(transform.position.y * 5);
+            sprite.sortingOrder = 100 - Mathf.RoundToInt((transform.position.y - .4f) * 5);
             sprite.color = Time.time < invincibleUntil ? new Color(1, .55f, .5f, .8f + .2f * Mathf.Sin(Time.time * 30)) : Color.white;
             FindInteraction();
             if (InputBridge.InteractPressed && Nearby != null) Nearby.Interact();

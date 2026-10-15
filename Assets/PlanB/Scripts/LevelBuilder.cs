@@ -10,13 +10,18 @@ namespace PlanB
     {
         public const int Width = 48;
         public const int Height = 28;
-        public int FloorNumber { get; private set; }
-        private string[] map;
+        [field: SerializeField] public int FloorNumber { get; private set; }
+        public Sprite MapPreview { get { return terrain != null ? terrain.MapPreview : null; } }
+        public int TerrainRendererCount { get { return terrain != null ? Height + 1 : 0; } }
+        [SerializeField] private StaticMapRenderer terrain;
+        [SerializeField] private string[] map;
         private readonly int[,] distances = new int[Width, Height];
         private readonly Queue<Vector2Int> frontier = new Queue<Vector2Int>(Width * Height);
         private Vector2Int lastTarget = new Vector2Int(-999, -999);
         private bool lastGateOpen;
         private readonly HashSet<Vector2Int> furniture = new HashSet<Vector2Int>();
+        [SerializeField] private List<Vector2Int> furnitureCells = new List<Vector2Int>();
+        [System.NonSerialized] private bool footprintsReady;
         private static readonly Vector2Int[] Neighbors =
         {
             Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left
@@ -87,6 +92,17 @@ namespace PlanB
         };
 
         public static Vector2 Cell(int column, int row) { return new Vector2(column - 24, 14 - row); }
+        private void OnEnable()
+        {
+            RestoreFootprints();
+            InvalidatePaths();
+        }
+        private void RestoreFootprints()
+        {
+            furniture.Clear();
+            if (furnitureCells != null) foreach (Vector2Int cell in furnitureCells) furniture.Add(cell);
+            footprintsReady = true;
+        }
         public static Vector2Int Grid(Vector2 position)
         {
             return new Vector2Int(Mathf.RoundToInt(position.x + 24), Mathf.RoundToInt(14 - position.y));
@@ -95,21 +111,24 @@ namespace PlanB
         public void Build(FloorManager manager, int floor)
         {
             FloorNumber = floor;
-            map = floor == 1 ? Floor1Map : Floor2Map;
-            var ground = new GameObject("Ground and wall sprites").transform;
-            ground.SetParent(transform, false);
+            map = (string[])(floor == 1 ? Floor1Map : Floor2Map).Clone();
+            furniture.Clear();
+            if (furnitureCells == null) furnitureCells = new List<Vector2Int>();
+            furnitureCells.Clear();
+            footprintsReady = true;
+            if (floor == 1)
+            {
+                // The maintenance door crosses this two-cell-thick wall, rather than a blind pocket.
+                for (int row = 8; row <= 9; row++)
+                {
+                    char[] cells = map[row].ToCharArray(); cells[32] = cells[33] = '.'; map[row] = new string(cells);
+                }
+            }
+            var ground = new GameObject("Baked facility terrain");
+            ground.transform.SetParent(transform, false);
+            terrain = ground.AddComponent<StaticMapRenderer>(); terrain.Build(map, floor);
             for (int r = 0; r < Height; r++)
             {
-                for (int c = 0; c < Width; c++)
-                {
-                    char tile = map[r][c];
-                    string key = tile == '#' ? "tile_wall" : tile == 'm' || tile == 'h' ? "tile_metal" : "tile_wood";
-                    if (tile != '#' && tile != 'c' && (c * 7 + r * 11) % 37 == 0) key = "tile_cracked";
-                    var piece = Sprite(key, Cell(c, r), ground, tile == '#' ? 30 : -100);
-                    if (tile != '#' && floor == 2) piece.color = new Color(.73f, .84f, .93f);
-                    if (tile == 'c') Sprite("carpet", Cell(c, r), ground, -95);
-                    if (tile == 'h' && (c == 2 || c == 7)) piece.color = (r % 2 == 0) ? new Color(.82f, .58f, .18f) : new Color(.29f, .31f, .29f);
-                }
                 // Merge all adjoining solid tiles on this row into a single collider.
                 int begin = -1;
                 for (int c = 0; c <= Width; c++)
@@ -151,33 +170,38 @@ namespace PlanB
 
         private void Prop(string key, int c, int r, float width = 1.5f, float height = 1.5f, bool solid = false)
         {
-            var renderer = Sprite(key, Cell(c, r), transform, 40 - Mathf.RoundToInt(Cell(c, r).y * 2), new Vector2(width, height));
-            if (solid)
+            var renderer = Sprite(key, Cell(c, r), transform, 0, new Vector2(width, height));
+            renderer.sortingOrder = 100 - Mathf.RoundToInt((Cell(c, r).y - height * .45f) * 5);
+            if (solid || key == "crate" || key == "plant")
             {
-                furniture.Add(new Vector2Int(c, r));
                 renderer.gameObject.layer = 8;
+                float footprintWidth = key == "plant" ? .48f : width * .84f;
+                float footprintHeight = key == "bed" ? height * .70f : key == "crate" ? height * .62f : height * .30f;
+                float offset = key == "bed" ? -.08f : -height * .23f;
                 var collider = renderer.gameObject.AddComponent<BoxCollider2D>();
-                collider.size = new Vector2(.72f / Mathf.Max(.01f, renderer.transform.localScale.x), .55f / Mathf.Max(.01f, renderer.transform.localScale.y));
-                collider.offset = new Vector2(0, -.18f / Mathf.Max(.01f, renderer.transform.localScale.y));
+                collider.size = new Vector2(footprintWidth / renderer.transform.localScale.x, footprintHeight / renderer.transform.localScale.y);
+                collider.offset = new Vector2(0, offset / renderer.transform.localScale.y);
+                Vector2 center = Cell(c, r) + Vector2.up * offset;
+                for (int row = Mathf.Max(0, r - 3); row <= Mathf.Min(Height - 1, r + 3); row++)
+                    for (int column = Mathf.Max(0, c - 4); column <= Mathf.Min(Width - 1, c + 4); column++)
+                    {
+                        Vector2 delta = Cell(column, row) - center;
+                        if (Mathf.Abs(delta.x) < footprintWidth * .5f + .30f && Mathf.Abs(delta.y) < footprintHeight * .5f + .30f)
+                        {
+                            var cell = new Vector2Int(column, row);
+                            if (furniture.Add(cell)) furnitureCells.Add(cell);
+                        }
+                    }
             }
         }
 
         private T Object<T>(string key, int c, int r, Vector2 size) where T : Component
         {
-            return Sprite(key, Cell(c, r), transform, 55, size).gameObject.AddComponent<T>();
-        }
-
-        private void Label(string value, int c, int r, Color color, float scale = .14f)
-        {
-            var go = new GameObject(value);
-            go.transform.SetParent(transform, false);
-            go.transform.position = Cell(c, r);
-            var label = go.AddComponent<TextMesh>();
-            label.text = value; label.fontSize = 42; label.characterSize = scale;
-            label.anchor = TextAnchor.MiddleCenter; label.alignment = TextAlignment.Center;
-            label.color = color;
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sortingOrder = -70;
+            var renderer = Sprite(key, Cell(c, r), transform, 100 - Mathf.RoundToInt((Cell(c, r).y - size.y * .45f) * 5), size);
+            var component = renderer.gameObject.AddComponent<T>();
+            var door = component as Door;
+            if (door != null) door.ConfigureOpening(size);
+            return component;
         }
 
         private void Ammo(params Vector2Int[] positions)
@@ -189,18 +213,22 @@ namespace PlanB
         {
             foreach (var cell in cells)
             {
-                var enemy = Enemy.Spawn(kind, Cell(cell.x, cell.y), transform);
+                Vector2Int spawn = cell;
+                if (!IsWalkable(spawn.x, spawn.y))
+                {
+                    bool found = false;
+                    for (int radius = 1; radius <= 4 && !found; radius++)
+                        for (int y = -radius; y <= radius && !found; y++)
+                            for (int x = -radius; x <= radius && !found; x++)
+                                if (IsWalkable(cell.x + x, cell.y + y)) { spawn = cell + new Vector2Int(x, y); found = true; }
+                }
+                var enemy = Enemy.Spawn(kind, Cell(spawn.x, spawn.y), transform);
                 if (enemy != null) manager.RegisterEnemy(enemy, FloorNumber);
             }
         }
 
         private void FurnishResidential(FloorManager manager)
         {
-            Label("RESIDENTIAL", 7, 2, new Color(.72f, .60f, .38f));
-            Label("LOUNGE", 25, 8, new Color(.76f, .57f, .31f));
-            Label("MAINTENANCE", 40, 2, new Color(.76f, .65f, .32f), .11f);
-            Label("KITCHEN / STORAGE", 8, 14, new Color(.72f, .60f, .38f), .10f);
-            Label("ELEVATOR", 24, 22, new Color(.82f, .66f, .32f), .11f);
             Prop("bed", 5, 5, 2.6f, 3.4f, true);
             Prop("table", 9, 5, 1.6f, 1.3f, true);
             Prop("plant", 11, 3);
@@ -208,6 +236,7 @@ namespace PlanB
             Prop("table", 24, 13, 2.3f, 1.7f, true);
             Prop("plant", 19, 16);
             Prop("plant", 30, 8);
+            Prop("lamp", 11, 6, .85f, 1.8f); Prop("lamp", 28, 11, .85f, 1.8f);
             Prop("computer", 3, 15, 1.6f, 2);
             Prop("table", 7, 16, 3.7f, 1.3f, true);
             Prop("table", 12, 17, 1.8f, 2.8f, true);
@@ -219,8 +248,12 @@ namespace PlanB
             Object<Cabinet>("cabinet", 11, 21, new Vector2(1.4f, 2)).GuaranteedAmmo = true;
             Object<Cabinet>("cabinet", 29, 10, new Vector2(1.4f, 2));
             Object<Cabinet>("cabinet", 43, 4, new Vector2(1.4f, 2));
-            Object<Door>("door", 13, 7, new Vector2(1, 1.8f));
-            Object<Door>("door", 33, 8, new Vector2(1, 1.8f));
+            var bedroomDoor = Object<Door>("door", 13, 7, new Vector2(1, 1.85f));
+            bedroomDoor.transform.position = (Cell(13, 7) + Cell(13, 8)) * .5f;
+            bedroomDoor.ConfigureOpening(new Vector2(1, 1.85f));
+            var maintenanceDoor = Object<Door>("door", 33, 8, new Vector2(1, 1.85f));
+            maintenanceDoor.transform.position = (Cell(32, 8) + Cell(33, 9)) * .5f;
+            maintenanceDoor.ConfigureOpening(new Vector2(1, 1.85f));
             Object<Generator>("generator", 40, 5, new Vector2(3, 3));
             var lift = Object<Elevator>("elevator", 24, 25, new Vector2(3.2f, 2.7f));
             lift.FloorNumber = 1;
@@ -243,22 +276,20 @@ namespace PlanB
 
         private void FurnishResearch(FloorManager manager)
         {
-            Label("RESEARCH", 7, 2, new Color(.43f, .64f, .76f));
-            Label("SERVERS", 40, 2, new Color(.43f, .64f, .76f));
-            Label("QUARANTINE", 40, 18, new Color(.72f, .27f, .25f), .12f);
-            Label("SECURITY", 23, 15, new Color(.43f, .64f, .76f), .11f);
-            Label("EXIT LIFT", 24, 23, new Color(.43f, .64f, .76f), .10f);
             Prop("computer", 5, 4, 2.2f, 1.9f, true);
             Prop("computer", 10, 4, 2.2f, 1.9f, true);
             Prop("table", 7, 7, 3.1f, 1.3f, true);
             Prop("plant", 2, 9); Prop("plant", 13, 2);
-            Prop("computer", 35, 4, 1.7f, 2.8f, true);
-            Prop("computer", 39, 4, 1.7f, 2.8f, true);
+            Prop("server", 35, 3, 1.7f, 2.8f, true);
+            Prop("server", 38, 3, 1.7f, 2.8f, true);
+            Prop("server", 41, 3, 1.7f, 2.8f, true);
+            Prop("server", 44, 3, 1.7f, 2.8f, true);
             Prop("computer", 44, 9, 1.7f, 2.8f, true);
             Prop("computer", 20, 16, 2, 2);
             Prop("crate", 12, 24); Prop("crate", 14, 24);
             Prop("plant", 19, 22);
             Prop("bed", 44, 24, 2.3f, 2.8f, true);
+            Prop("lamp", 46, 22, .75f, 1.7f);
             Prop("table", 44, 20, 2.2f, 1.3f, true);
             Object<Cabinet>("cabinet", 3, 4, new Vector2(1.4f, 2)).GuaranteedAmmo = true;
             Object<Cabinet>("cabinet", 26, 3, new Vector2(1.4f, 2)).GuaranteedAmmo = true;
@@ -299,8 +330,26 @@ namespace PlanB
             return FloorNumber == 2 || tile == 'm' || tile == 'h';
         }
 
+        public string RoomAt(Vector2 position)
+        {
+            Vector2Int cell = Grid(position);
+            int c = cell.x, r = cell.y;
+            if (FloorNumber == 1)
+            {
+                if (c < 15) return r < 12 ? "Residential" : "Kitchen / Storage";
+                if (c >= 34 && r < 15) return "Maintenance";
+                if (c >= 18 && c <= 31 && r >= 20) return "Elevator Bay";
+                return r < 18 && c < 33 ? "Lounge" : "Utility Corridor";
+            }
+            if (c >= 31) return r >= 17 ? "Containment" : "Server Room";
+            if (c < 15 && r < 13) return "Research Lab";
+            if (c < 16) return "Service Corridor";
+            return r >= 20 ? "Exit Bay" : r >= 14 ? "Security" : "Research Corridor";
+        }
+
         public bool IsWalkable(int column, int row)
         {
+            if (!footprintsReady) RestoreFootprints();
             if (column < 0 || column >= Width || row < 0 || row >= Height || map == null || map[row][column] == '#' || furniture.Contains(new Vector2Int(column, row))) return false;
             if (FloorNumber == 2 && column == 30 && (row == 21 || row == 22))
             {
