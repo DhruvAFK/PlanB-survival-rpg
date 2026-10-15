@@ -32,6 +32,8 @@ Floor 1 starts with eight Walkers and three Runners. Floor 2 starts with six Cra
 
 Use **PlanB > Build Windows Demo** to produce `Builds/PlanB/PlanB.exe` directly without replacing the project's existing build-scene settings. Windows Build Support must be installed for the editor.
 
+The October 16 polished Windows x64 build is ready at `Builds/PlanB/PlanB.exe`. Compilation and a brief Direct3D 11 startup check passed. Run the executable to assess smoothness without the Unity editor running; a full human standalone play-through is still pending.
+
 Alternatively, use **PlanB > Setup** to open the dedicated scene and make it the only enabled build scene, then **File > Build Profiles** on Unity 6 (or **File > Build Settings** on 2022.3), select Windows x86_64 and Build. Setup deliberately updates Build Settings when invoked; the initial installation leaves the original settings untouched.
 
 ## Implementation and art

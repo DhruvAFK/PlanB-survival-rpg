@@ -30,9 +30,9 @@ Final graphics-enabled smoke passed all existing gameplay/audio/pool checks plus
 
 Matched render probe: 120 warmed 1600×900 offscreen world renders, mean Camera.Render CPU 0.331 ms before / 0.213 ms after. This measures render submission/culling only, not full-player FPS. Reports: `Verification/MapProbe-baseline.txt`, `MapProbe-after.txt`; probe log: `Logs/PlanBMapAfterRender.log`.
 
-The Windows build is being prepared; check `Logs/PlanBWindowsBuild.log` and `Builds/PlanB/PlanB.exe` before reporting build success. A human assessment of remaining lag is still needed.
+Windows x64 build succeeded: `Builds/PlanB/PlanB.exe`. Build log: `Logs/PlanBWindowsBuild.log`. An eight-second hidden Direct3D 11 startup check stayed running with no game exceptions logged (`Logs/PlanBPlayerBoot.log`); that test process was then closed. A human assessment of remaining lag and a complete standalone play-through are still needed. Unity's automatic changes to original render/player settings were restored after the build, and temporary performance-package files were removed. No original project changes remain.
 
-The latest usage check reported 38% in the short window and 6% in the weekly window. The 50% stop threshold has not been reached.
+The final usage check reported 40% in the short window and 6% in the weekly window. The 50% stop threshold was not reached. Source checkpoint: `fdbb04a`; this file is the continuation placeholder for any later improvements.
 
 ## Next steps if work is interrupted
 
